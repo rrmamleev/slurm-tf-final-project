@@ -34,6 +34,12 @@ variable "image_tag" {
   description = "Packer image tag"
 }
 
+variable "image_name" {
+  type = string
+  default = "nginx"
+  description = "Packer image name"
+}
+
 variable "disk_type" {
   type = string
   default = "network-hdd"

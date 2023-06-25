@@ -13,7 +13,7 @@ source "yandex" "this" {
   use_ipv4_nat        = var.use_ipv4_nat
   image_description   = var.image_description
   image_family        = var.image_family
-  image_name          = "nginx-${var.image_tag}"
+  image_name          = "${var.image_name}-${var.image_tag}"
   disk_type           = var.disk_type
 }
 
