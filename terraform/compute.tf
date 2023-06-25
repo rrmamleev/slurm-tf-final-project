@@ -1,52 +1,64 @@
 data "yandex_compute_image" "this" {
-  family = var.image_family
+  family = "${var.image_name}-${var.image_tag}"
 }
 
+resource "yandex_compute_instance_group" "this" {
+  name                = "${local.resource_name}-${var.instance_group_name}"
+  service_account_id  = yandex_iam_service_account.this.id
+  deletion_protection = false
+  labels = var.labels
 
-resource "yandex_compute_instance" "this" {
-  count = var.vm_count
-  name        = "${local.preffix}${var.vm_name}-${count.index}"
-  platform_id = "standard-v1"
-  zone     = var.az[count.index % length(var.az)]
-  labels         = var.labels
-  allow_stopping_for_update = true
+  instance_template {
+    platform_id = local.platform_id
+    labels = var.labels
+    resources {
+      memory = var.resources.memory
+      cores  = var.resources.cpu
+    }
 
-  resources {
-    cores  = var.resources[2].cpu
-    memory = var.resources[2].memory
-  }
+    boot_disk {
+      mode = "READ_WRITE"
+      initialize_params {
+        image_id = data.yandex_compute_image.this.id
+        size     = var.resources.disk
+      }
 
-  boot_disk {
-    initialize_params {
-      image_id = data.yandex_compute_image.this.id
-      size = var.resources[2].disk
+    }
+    network_interface {
+      network_id = yandex_vpc_network.this.id
+      nat = true
+    }
+
+    metadata = {
+      ssh-keys = var.public_ssh_key_path != "" ? var.public_ssh_key_path : "yc-user:${tls_private_key.this[0].public_key_openssh}"
+    }
+
+    network_settings {
+      type = "STANDARD"
     }
   }
 
-  network_interface {
-    subnet_id = yandex_vpc_subnet.this[var.az[count.index % length(var.az)]].id
-    nat = true
-  }
-
-  metadata = {
-    ssh-keys = var.public_ssh_key_path != "" ? var.public_ssh_key_path : "yc-user:${tls_private_key.this[0].public_key_openssh}"
-  }
-
-  provisioner "remote-exec" {
-    inline = ["sudo yum install python -y"]
-    connection {
-      host = self.network_interface.0.nat_ip_address
-      type = "ssh"
-      user = "centos"
-      private_key = var.public_ssh_key_path != "" ? "~/.ssh/id_rsa" : tls_private_key.this[0].private_key_openssh
-      agent = true
+  scale_policy {
+    fixed_scale {
+      size = var.scale_count
     }
   }
 
-  provisioner "local-exec" {
-    command = "ansible-playbook -u centos -i '${self.network_interface.0.nat_ip_address},' --private-key '${var.public_ssh_key_path != "" ? "~/.ssh/id_rsa" : "./id_rsa"}' ansible/playbook.yml"
-    environment = {
-      ANSIBLE_HOST_KEY_CHECKING = "False"
-    }
+  allocation_policy {
+    zones = var.az
   }
+
+  deploy_policy {
+    max_unavailable = 2
+    max_creating    = 2
+    max_expansion   = 2
+    max_deleting    = 2
+  }
+
+  depends_on = [
+    yandex_iam_service_account.this,
+    yandex_resourcemanager_folder_iam_binding.this,
+    yandex_vpc_network.this,
+    yandex_vpc_subnet.this
+  ]
 }
