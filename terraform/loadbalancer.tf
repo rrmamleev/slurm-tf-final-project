@@ -1,38 +1,98 @@
 
-resource "yandex_lb_target_group" "this" {
+resource "yandex_alb_target_group" "this" {
   name      = "${local.preffix}this"
   labels         = var.labels
   dynamic "target" {
-    for_each = [for s in yandex_compute_instance.this : {
+    for_each = [for s in yandex_compute_instance_group.this.instances : {
       address = s.network_interface.0.ip_address
       subnet_id = s.network_interface.0.subnet_id
     }]
 
     content {
       subnet_id = target.value.subnet_id
-      address   = target.value.address
+      ip_address   = target.value.address
     }
   }
 
 }
 
-resource "yandex_lb_network_load_balancer" "this" {
-  name = "${local.preffix}this"
-  labels         = var.labels
-  listener {
-    name = "${local.preffix}this"
-    port = var.port_lb
-    external_address_spec {
-      ip_version = "ipv4"
+resource "yandex_alb_backend_group" "this" {
+  name = "${local.preffix}-${var.backend_group_name}"
+  labels = var.labels
+
+  http_backend {
+    name             = var.backend_group_name
+    weight           = 1
+    port             = var.http_backend_port
+    target_group_ids = [yandex_alb_target_group.this.id]
+    load_balancing_config {
+      panic_threshold = 50
+    }
+    healthcheck {
+      timeout  = "1s"
+      interval = "1s"
+      healthcheck_port = var.http_backend_port
+      http_healthcheck {
+        path = "/"
+      }
     }
   }
-  attached_target_group {
-    target_group_id = yandex_lb_target_group.this.id
-    healthcheck {
-      name = var.nlb_healthcheck.name
-      http_options {
-        port = var.nlb_healthcheck.port
-        path = var.nlb_healthcheck.path
+}
+
+resource "yandex_alb_load_balancer" "this" {
+  name        = "${local.preffix}-${var.loadbalancer_name}"
+  labels = var.labels
+
+  network_id  = yandex_vpc_network.this.id
+
+  allocation_policy {
+    dynamic "location" {
+      for_each = toset(var.az)
+      content {
+        zone_id   = location.value
+        subnet_id = yandex_vpc_subnet.this[location.value].id
+      }
+    }
+  }
+
+  listener {
+    name = "my-listener"
+    endpoint {
+      address {
+        external_ipv4_address {
+        }
+      }
+      ports = [ var.lb_frontend_port ]
+    }
+    http {
+      handler {
+        http_router_id = yandex_alb_http_router.this.id
+      }
+    }
+  }
+
+  log_options {
+    discard_rule {
+      http_code_intervals = ["HTTP_2XX"]
+      discard_percent = 75
+    }
+  }
+}
+
+resource "yandex_alb_http_router" "this" {
+  name      = "${local.preffix}-${var.http_router_name}"
+  labels = var.labels
+}
+
+resource "yandex_alb_virtual_host" "this" {
+  name      = "${local.preffix}-${var.virtual_host_name}"
+  http_router_id = yandex_alb_http_router.this.id
+  route {
+    name = "my-route"
+    http_route {
+      http_route_action {
+        backend_group_id = yandex_alb_backend_group.this.id
+        timeout = "3s"
       }
     }
   }

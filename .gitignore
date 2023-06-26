@@ -1,6 +1,8 @@
-/.terraform
-.terraform.lock.hcl
-.terraform.tfstate.lock.info
-id_rsa
-id_rsa.pub
-/backup
+terraform/.terraform
+terraform/.terraform.lock.hcl
+terraform/.terraform.tfstate.lock.info
+terraform/id_rsa
+terraform/id_rsa.pub
+terraform/backup
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup

@@ -1,15 +1,15 @@
 data "yandex_compute_image" "this" {
-  family = "${var.image_name}-${var.image_tag}"
+  name = "${var.image_name}-${var.image_tag}"
 }
 
 resource "yandex_compute_instance_group" "this" {
-  name                = "${local.resource_name}-${var.instance_group_name}"
+  name                = "${local.preffix}-${var.instance_group_name}"
   service_account_id  = yandex_iam_service_account.this.id
   deletion_protection = false
   labels = var.labels
 
   instance_template {
-    platform_id = local.platform_id
+    platform_id = var.platform_id
     labels = var.labels
     resources {
       memory = var.resources.memory
@@ -40,7 +40,7 @@ resource "yandex_compute_instance_group" "this" {
 
   scale_policy {
     fixed_scale {
-      size = var.scale_count
+      size = var.vm_count
     }
   }
 

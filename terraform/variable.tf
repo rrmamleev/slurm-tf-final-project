@@ -69,9 +69,13 @@ variable "vpc_id" {
   description = "VPC ID"
 }
 
+variable "platform_id" {
+  type = string
+}
+
 variable "folder_id" {
   type = string
-  description = "Yandex Cloud Folder ID (exported from environment variables)"
+  description = "YaCloud Folder ID"
 }
 
 variable "image_name" {
@@ -80,7 +84,7 @@ variable "image_name" {
 }
 
 variable "image_tag" {
-  type = number
+  type = string
   description = "Image tag"
 }
 
