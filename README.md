@@ -8,7 +8,7 @@
  3. Packer
  4. Ansible
 
-Необходимо инициализируем **Yandex Cloud CLI** и экспортируем переменные
+Инициализируем **Yandex Cloud CLI** и экспортируем переменные
 ```
 yc init
 export YC_CLOUD_ID=$(yc config get cloud-id)
